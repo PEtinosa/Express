@@ -81,7 +81,8 @@ authRouter.post('/verify-email', (req, res)=>{
 
     if(!exist_user)  return res.status(400).json({message: "invalid  user code"});
 
-    const {code} = verfication;
+    const code = verfication;
+    verfication(user.id);
 
     if(!code) return res.status(400).json({message: "invalid code"});
 
@@ -154,7 +155,7 @@ authRouter.post("/forgot-password", async (req,res) =>{
     // check and delete existing otp
 
     
-    const {id}= req.body
+    const id= user.id
 
     verfication.find((v) => v.user_id === id)
     delete verfication.code
