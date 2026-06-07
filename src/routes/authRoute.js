@@ -8,32 +8,6 @@ import { send_mail } from "../utils/send_email.js";
 
 export const authRouter = Router();
 
-// router.post("/", async (req, res)=>{
-
-//   try {
-//     const {name, age } = req.body;
-//     console.log("name and age is: ", name, age );
-
-//     if(!name || !age) return res.status(400).json({message: "name and age field is required"});
-//       // this is to handle what happens when the fields are empty
-
-//     const existing_user = Users.find((u) => u.name === name);
-//     if (existing_user)
-//       return res
-//       .status(409)
-//       .json({message:"name already exist"});
-
-//       return res.staus(201).json({message:"user created"});
-//       // the ":" beside the message is highly neccessary
-//   } catch (error) {
-//     console.log("error occured: ", error .message);
-//     return res.status(500)
-//     .json({message: error.message});
-//   }
-// });
-
-// export default handler
-
 authRouter.post("/register", async (req, res) => {
   try {
     const { first_name, last_name, phone_number, email, password } = req.body;
@@ -80,7 +54,7 @@ authRouter.post("/register", async (req, res) => {
         ${verfication.find((v) => v.user_id == user.id).code}`,
     });
 
-    res.status(201).json({ message: "user created successfully", data: user });
+    res.status(201).json({ message: "user created successfully", data: Users });
   } catch (error) {
     console.log("error occured: ", error.message);
     return res.status(500).json({ message: error.message });
@@ -88,21 +62,30 @@ authRouter.post("/register", async (req, res) => {
 });
 
 authRouter.post("/verify-email", (req, res) => {
-  const { id } = req.body;
-  const exist_user = Users.find((u) => u.id === id);
+  const { user_id, code } = req.body;
+  console.log("user id: ", user_id, "code: ", code);
+
+  const exist_user = Users.find((u) => u.id == user_id);
 
   if (!exist_user)
     return res.status(400).json({ message: "invalid  user code" });
 
-  const code = verfication;
-  verfication(user.id);
+  const actual_code = verfication.find(
+    (v) => v.user_id === exist_user.id,
+  )?.code;
 
-  if (!code) return res.status(400).json({ message: "invalid code" });
+  //   if (!code) return res.status(400).json({ message: "invalid code" });
+  // compare code sent to user email and the code sent in the request
+  const is_match = code === actual_code;
 
-  if (verfication.find((v) => v.user_id == user.id)) {
-    delete verfication[code];
-    res.status(200).json({ message: "user verified successfully" });
+  exist_user.isVerified = is_match;
+
+  if (is_match) {
+    // delete code from verfication array
+    const index = verfication.findIndex((v) => v.user_id === exist_user.id);
+    verfication.splice(index, 1);
   }
+  res.status(200).json({ message: "user verified successfully" });
 });
 
 // "/login" {email, password}
