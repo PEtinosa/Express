@@ -1,5 +1,5 @@
 import { Router } from "express";
-import bcrypt from 'bcrypt';
+import bcrypt from "bcrypt";
 import { Users } from "../models/users.js";
 // import {smtp} from "..config/smtp.js";
 import { generate_code } from "../utils/generate_code.js";
@@ -13,7 +13,7 @@ export const authRouter = Router();
 //   try {
 //     const {name, age } = req.body;
 //     console.log("name and age is: ", name, age );
-    
+
 //     if(!name || !age) return res.status(400).json({message: "name and age field is required"});
 //       // this is to handle what happens when the fields are empty
 
@@ -34,26 +34,35 @@ export const authRouter = Router();
 
 // export default handler
 
- 
-
-authRouter.post("/register", async (req, res)=>{
-    const {first_name, last_name, phone_number, email, password} = req.body;
-// "/register"
+authRouter.post("/register", async (req, res) => {
+  try {
+    const { first_name, last_name, phone_number, email, password } = req.body;
 
     // check edge cases
     if (!email || !password)
-        return res.status (400).json({message:"email and passoword is required"});
+      return res
+        .status(400)
+        .json({ message: "email and passoword is required" });
 
     // check if user exist
-    const exist_user = Users.find(u=>u.email === email)
-    if (exist_user)return res.status(400).json({message: "email taken, try another email"})
+    const exist_user = Users.find((u) => u.email === email);
+    if (exist_user)
+      return res
+        .status(400)
+        .json({ message: "email taken, try another email" });
 
     // hash password
-    const hashed_password = await bcrypt.hash(password, 5)
-   
+    const hashed_password = await bcrypt.hash(password, 5);
+
     // save user to DB
 
-    const user = {first_name, last_name, phone_number, email, password: hashed_password};
+    const user = {
+      first_name,
+      last_name,
+      phone_number,
+      email,
+      password: hashed_password,
+    };
     user.id = Users.length + 1;
     Users.push(user);
 
@@ -61,78 +70,74 @@ authRouter.post("/register", async (req, res)=>{
     const code = generate_code(6);
 
     // store code for user
-    verfication.push({user_id: user.id, code:code})
+    verfication.push({ user_id: user.id, code: code });
 
     // send email confirmation
     send_mail({
-        recipient_email: user.email,
-        email_type: "email confirmation",
-        template: `welcome ${user.first_name}, your otp for email confirmation code is
+      recipient_email: user.email,
+      email_type: "email confirmation",
+      template: `welcome ${user.first_name}, your otp for email confirmation code is
         ${verfication.find((v) => v.user_id == user.id).code}`,
     });
-    
 
-    res.status (201).json({message: "user created successfully", data: user});
+    res.status(201).json({ message: "user created successfully", data: user });
+  } catch (error) {
+    console.log("error occured: ", error.message);
+    return res.status(500).json({ message: error.message });
+  }
 });
 
-authRouter.post('/verify-email', (req, res)=>{
-    const {id} = req.body
-    const exist_user = Users.find(u=>u.id===id);
+authRouter.post("/verify-email", (req, res) => {
+  const { id } = req.body;
+  const exist_user = Users.find((u) => u.id === id);
 
-    if(!exist_user)  return res.status(400).json({message: "invalid  user code"});
+  if (!exist_user)
+    return res.status(400).json({ message: "invalid  user code" });
 
-    const code = verfication;
-    verfication(user.id);
+  const code = verfication;
+  verfication(user.id);
 
-    if(!code) return res.status(400).json({message: "invalid code"});
+  if (!code) return res.status(400).json({ message: "invalid code" });
 
-    if (verfication.find((v) => v.user_id == user.id)){
-        delete verfication[code];
-        res.status (200).json({message: "user verified successfully"});
-    };
-    
+  if (verfication.find((v) => v.user_id == user.id)) {
+    delete verfication[code];
+    res.status(200).json({ message: "user verified successfully" });
+  }
 });
-
-
 
 // "/login" {email, password}
 
 // export default router
-authRouter.post("/login", async (req,res)=>{
-    const {email, password} = req.body
+authRouter.post("/login", async (req, res) => {
+  const { email, password } = req.body;
 
+  // check edge cases
+  if (!email || password)
+    return res.status(400).json({ message: "email and password is required" });
 
-        // check edge cases
-    if(!email || password)
-        return res.status(400).json({ message: "email and password is required"}
-    )
+  // check if user exist
+  const exist_user = Users.find((u) => u.email === email);
+  if (!exist_user)
+    return res.status(400).json({ message: "wrong credentials" });
 
-    // check if user exist
-    const exist_user = Users.find(u=>u.email === email)
-        if (!exist_user)return res.status(400).json({message: "wrong credentials"});
+  // compare password
+  const is_match = await bcrypt.compare(password, exist_user.password);
 
-    // compare password
-    const is_match = await bcrypt.compare(password, exist_user.password);
+  // edge cases
+  if (!is_match) return res.status(401).json({ message: "wrong credentials" });
 
-    // edge cases
-    if(!is_match)return res.status(401).json({message: "wrong credentials"});
-
-    // return user
-    return res.status(200).json({ message: "success", data: exist_user});
-
+  // return user
+  return res.status(200).json({ message: "success", data: exist_user });
 });
 
 // authRouter.post('/forgot_password',(req,res)=>{
 //     const email = req.body
 //     const user = Users.find(u=>u.email ===email)
-    
+
 //     if(!email)
 //         return res.status(400).json({message: "email sent"});
 
-    
 //     const code = generate_code(6);
-
-   
 
 //     verfication.push({user_email: user.email, code:code})
 
@@ -144,32 +149,30 @@ authRouter.post("/login", async (req,res)=>{
 //     });
 // });
 
+authRouter.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
 
-authRouter.post("/forgot-password", async (req,res) =>{
-    const {email} = req.body 
+  if (!email) return res.status(400).json({ error: "email is required" });
 
-    if(!email) return res.status(400).json({error: "email is required"});
+  const user = Users.find((u) => u.email === email);
+  if (!user) return res.status(400).json({ error: "user not found" });
+  // check and delete existing otp
 
-    const user = Users.find((u)=>u.email===email)
-    if(!user) return res.status(400).json({error: "user not found"});
-    // check and delete existing otp
+  const id = user.id;
 
-    
-    const id= user.id
+  verfication.find((v) => v.user_id === id);
+  delete verfication.code;
+  // create otp
+  const code = generate_code(6);
 
-    verfication.find((v) => v.user_id === id)
-    delete verfication.code
-    // create otp
-    const code = generate_code(6);
+  // store code for user
+  verfication.push({ user_id: user.id, code: code });
 
-    // store code for user
-    verfication.push({user_id: user.id, code:code})
-
-    if (user)  send_mail({
-        recipient_email: user.email,
-        email_type: "forgot password",
-        template: `${user.first_name}, your otp for email confirmation code is
-        ${verfication.find((v)=>v.user_id)}`,
+  if (user)
+    send_mail({
+      recipient_email: user.email,
+      email_type: "forgot password",
+      template: `${user.first_name}, your otp for email confirmation code is
+        ${verfication.find((v) => v.user_id)}`,
     });
-    
-})
+});
